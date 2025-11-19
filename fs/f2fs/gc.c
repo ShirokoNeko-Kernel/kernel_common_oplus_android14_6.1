@@ -228,8 +228,6 @@ static int select_gc_type(struct f2fs_sb_info *sbi, int gc_type)
 
 	switch (sbi->gc_mode) {
 	case GC_IDLE_CB:
-	case GC_URGENT_LOW:
-	case GC_URGENT_MID:
 		gc_mode = GC_CB;
 		break;
 	case GC_IDLE_GREEDY:
@@ -1368,8 +1366,9 @@ static int move_data_block(struct inode *inode, block_t bidx,
 	set_summary(&sum, dn.nid, dn.ofs_in_node, ni.version);
 
 	/* allocate block address */
+
 	err = f2fs_allocate_data_block(fio.sbi, NULL, fio.old_blkaddr, &newaddr,
-				&sum, type, NULL);
+				&sum, type, NULL, 0);
 	if (err) {
 		f2fs_put_page(mpage, 1);
 		/* filesystem should shutdown, no need to recovery block */
@@ -1390,7 +1389,7 @@ static int move_data_block(struct inode *inode, block_t bidx,
 				page_address(mpage), PAGE_SIZE);
 	f2fs_put_page(mpage, 1);
 
-	f2fs_invalidate_internal_cache(fio.sbi, fio.old_blkaddr, 1);
+	f2fs_invalidate_internal_cache(fio.sbi, fio.old_blkaddr);
 
 	set_page_dirty(fio.encrypted_page);
 	if (clear_page_dirty_for_io(fio.encrypted_page))

@@ -70,8 +70,9 @@ struct seq_file;
 struct sighand_struct;
 struct signal_struct;
 struct task_delay_info;
-struct task_dma_buf_info;
 struct task_group;
+
+#include <linux/sched/ext.h>
 
 /*
  * Task state bitmask. NOTE! These bits are also
@@ -295,6 +296,11 @@ enum {
 };
 
 extern void scheduler_tick(void);
+
+#ifdef CONFIG_SLIM_SCHED
+extern enum hrtimer_restart scheduler_tick_no_balance(struct hrtimer *timer);
+extern void stop_shadow_tick_timer(void);
+#endif
 
 #define	MAX_SCHEDULE_TIMEOUT		LONG_MAX
 
@@ -1547,10 +1553,14 @@ struct task_struct {
 	 */
 	union rv_task_monitor		rv[RV_PER_TASK_MONITORS];
 #endif
-
 	ANDROID_KABI_USE(1, unsigned int saved_state);
-	ANDROID_KABI_USE(2, struct task_dma_buf_info *dmabuf_info);
+#ifdef CONFIG_SLIM_SCHED
+	ANDROID_KABI_USE(2, unsigned long sched_prop);
+	ANDROID_KABI_USE(3, struct sched_ext_entity *scx);
+#else
+	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
+#endif
 	ANDROID_KABI_RESERVE(4);
 	ANDROID_KABI_RESERVE(5);
 	ANDROID_KABI_RESERVE(6);
@@ -1692,16 +1702,15 @@ static inline unsigned int __task_state_index(unsigned int tsk_state,
 
 	BUILD_BUG_ON_NOT_POWER_OF_2(TASK_REPORT_MAX);
 
-	if ((tsk_state & TASK_IDLE) == TASK_IDLE)
+	if (tsk_state == TASK_IDLE)
 		state = TASK_REPORT_IDLE;
 
 	/*
 	 * We're lying here, but rather than expose a completely new task state
 	 * to userspace, we can make this appear as if the task has gone through
 	 * a regular rt_mutex_lock() call.
-	 * Report frozen tasks as uninterruptible.
 	 */
-	if ((tsk_state & TASK_RTLOCK_WAIT) || (tsk_state & TASK_FROZEN))
+	if (tsk_state == TASK_RTLOCK_WAIT)
 		state = TASK_UNINTERRUPTIBLE;
 
 	return fls(state);
@@ -1929,6 +1938,30 @@ static inline int task_nice(const struct task_struct *p)
 	return PRIO_TO_NICE((p)->static_prio);
 }
 
+#ifdef CONFIG_SLIM_SCHED
+#define SCHED_PROP_DEADLINE_MASK (0xFF) /* deadline for ext sched class */
+#define SCHED_PROP_DEADLINE_LEVEL1 (1)  /* 1ms for user-aware audio tasks */
+#define SCHED_PROP_DEADLINE_LEVEL2 (2)  /* 2ms for user-aware touch tasks */
+#define SCHED_PROP_DEADLINE_LEVEL3 (3)  /* 4ms for user aware dispaly tasks */
+#define SCHED_PROP_DEADLINE_LEVEL4 (4)  /* 6ms */
+#define SCHED_PROP_DEADLINE_LEVEL5 (5)  /* 8ms */
+#define SCHED_PROP_DEADLINE_LEVEL6 (6)  /* 16ms */
+#define SCHED_PROP_DEADLINE_LEVEL7 (7)  /* 32ms */
+#define SCHED_PROP_DEADLINE_LEVEL8 (8)  /* 64ms */
+#define SCHED_PROP_DEADLINE_LEVEL9 (9)  /* 128ms */
+static inline long sched_prop_get_deadline_dsq_id(struct task_struct *p)
+{
+	return (p->sched_prop & SCHED_PROP_DEADLINE_MASK) - 1;
+}
+
+#define SCHED_PROP_TOP_THREAD_SHIFT (8)
+#define SCHED_PROP_TOP_THREAD_MASK  (0xf << SCHED_PROP_TOP_THREAD_SHIFT)
+static inline int sched_prop_get_top_thread_id(struct task_struct *p)
+{
+	return (p->sched_prop & SCHED_PROP_TOP_THREAD_MASK) >> SCHED_PROP_TOP_THREAD_SHIFT;
+}
+
+#endif
 extern int can_nice(const struct task_struct *p, const int nice);
 extern int task_curr(const struct task_struct *p);
 extern int idle_cpu(int cpu);
