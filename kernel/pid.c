@@ -593,6 +593,35 @@ struct task_struct *pidfd_get_task(int pidfd, unsigned int *flags)
  * Return: On success, a cloexec pidfd is returned.
  *         On error, a negative errno number will be returned.
  */
+int pidfd_prepare(struct pid *pid, unsigned int flags, struct file **ret)
+{
+	int pidfd;
+	struct file *pidfd_file;
+
+	if (flags & ~PIDFD_NONBLOCK)
+		return -EINVAL;
+
+	if (!pid_has_task(pid, PIDTYPE_TGID))
+		return -ESRCH;
+
+	pidfd = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
+	if (pidfd < 0)
+		return pidfd;
+
+	pidfd_file = anon_inode_getfile("[pidfd]", &pidfd_fops, get_pid(pid),
+				      O_RDWR | O_CLOEXEC);
+	if (IS_ERR(pidfd_file)) {
+		put_unused_fd(pidfd);
+		return PTR_ERR(pidfd_file);
+	}
+
+	if (flags & PIDFD_NONBLOCK)
+		pidfd_file->f_flags |= O_NONBLOCK;
+
+	*ret = pidfd_file;
+	return pidfd;
+}
+
 int pidfd_create(struct pid *pid, unsigned int flags)
 {
 	int pidfd;

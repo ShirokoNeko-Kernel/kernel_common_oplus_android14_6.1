@@ -78,6 +78,7 @@
 #include <linux/taskstats_kern.h>
 #include <linux/random.h>
 #include <linux/tty.h>
+#include <linux/dma-buf.h>
 #include <linux/fs_struct.h>
 #include <linux/magic.h>
 #include <linux/perf_event.h>
@@ -968,6 +969,7 @@ void __put_task_struct(struct task_struct *tsk)
 	security_task_free(tsk);
 	exit_creds(tsk);
 	delayacct_tsk_free(tsk);
+	put_dmabuf_info(tsk);
 	put_signal_struct(tsk->signal);
 	sched_core_free(tsk);
 	free_task(tsk);
@@ -2383,6 +2385,9 @@ static __latent_entropy struct task_struct *copy_process(
 	RCU_INIT_POINTER(p->bpf_storage, NULL);
 	p->bpf_ctx = NULL;
 #endif
+	retval = copy_dmabuf_info(clone_flags, p);
+	if (retval)
+		goto bad_fork_cleanup_policy;
 
 	/* Perform scheduler related setup. Assign this task to a CPU. */
 	retval = sched_fork(clone_flags, p);
@@ -2708,6 +2713,7 @@ bad_fork_cleanup_perf:
 bad_fork_sched_cancel_fork:
 	sched_cancel_fork(p);
 bad_fork_cleanup_policy:
+	put_dmabuf_info(p);
 	lockdep_free_task(p);
 #ifdef CONFIG_NUMA
 	mpol_put(p->mempolicy);

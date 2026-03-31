@@ -70,6 +70,7 @@ struct seq_file;
 struct sighand_struct;
 struct signal_struct;
 struct task_delay_info;
+struct task_dma_buf_info;
 struct task_group;
 
 #include <linux/sched/ext.h>
@@ -1501,6 +1502,9 @@ struct task_struct {
 #ifdef CONFIG_SECURITY
 	/* Used by LSM modules for access restriction: */
 	void				*security;
+#endif
+#ifdef CONFIG_DMA_SHARED_BUFFER
+	struct task_dma_buf_info	*dmabuf_info;
 #endif
 #ifdef CONFIG_BPF_SYSCALL
 	/* Used by BPF task local storage */

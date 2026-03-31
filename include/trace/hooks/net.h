@@ -18,10 +18,15 @@ struct sock;
 struct net_device;
 struct msghdr;
 struct sk_buff;
+struct nf_conn;
 DECLARE_RESTRICTED_HOOK(android_rvh_sk_alloc,
 	TP_PROTO(struct sock *sock), TP_ARGS(sock), 1);
 DECLARE_RESTRICTED_HOOK(android_rvh_sk_free,
 	TP_PROTO(struct sock *sock), TP_ARGS(sock), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_nf_conn_alloc,
+	TP_PROTO(struct nf_conn *ct), TP_ARGS(ct), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_nf_conn_free,
+	TP_PROTO(struct nf_conn *ct), TP_ARGS(ct), 1);
 DECLARE_RESTRICTED_HOOK(android_rvh_tcp_sendmsg,
 	TP_PROTO(struct sock *sk, struct msghdr *msg, size_t len),
 	TP_ARGS(sk, msg, len), 1);
